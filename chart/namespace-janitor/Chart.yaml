@@ -1,0 +1,16 @@
+apiVersion: v2
+name: namespace-janitor
+description: Cleanup CronJob that deletes aged namespaces and alerts via Slack or email
+version: 0.1.0
+appVersion: "0.1.0"
+keywords:
+  - kubernetes
+  - janitor
+  - cronjob
+home: https://github.com/your-org/k8s-janitor
+sources:
+  - https://github.com/your-org/k8s-janitor
+maintainers:
+  - name: namespace-janitor-maintainers
+    email: devnull@example.com
+type: application

@@ -1,0 +1,14 @@
+{{- if and .Values.denylist.enabled (gt (len .Values.denylist.entries) 0) }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "namespace-janitor.fullname" . }}-denylist
+  namespace: {{ .Values.namespace | quote }}
+  labels:
+{{ include "namespace-janitor.labels" . | indent 4 }}
+data:
+  namespaces.txt: |
+{{- range .Values.denylist.entries }}
+    {{ . }}
+{{- end }}
+{{- end }}

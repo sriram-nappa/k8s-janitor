@@ -1,0 +1,126 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "namespace-janitor.fullname" . }}
+  namespace: {{ .Values.namespace | quote }}
+  labels:
+{{ include "namespace-janitor.labels" . | indent 4 }}
+spec:
+  schedule: {{ .Values.schedule | quote }}
+  concurrencyPolicy: {{ .Values.concurrencyPolicy }}
+  successfulJobsHistoryLimit: {{ .Values.successfulJobsHistoryLimit }}
+  failedJobsHistoryLimit: {{ .Values.failedJobsHistoryLimit }}
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+{{ include "namespace-janitor.selectorLabels" . | indent 12 }}
+          {{- if .Values.podAnnotations }}
+          annotations:
+{{ toYaml .Values.podAnnotations | indent 12 }}
+          {{- end }}
+        spec:
+          serviceAccountName: {{ include "namespace-janitor.serviceAccountName" . }}
+          restartPolicy: Never
+          securityContext:
+{{ toYaml .Values.podSecurityContext | indent 12 }}
+          containers:
+            - name: janitor
+              image: {{ printf "%s:%s" .Values.image.repository .Values.image.tag | quote }}
+              imagePullPolicy: {{ .Values.image.pullPolicy }}
+              command: ["/bin/sh", "{{ .Values.jobConfig.scriptMountPath }}/cleanup-namespaces.sh"]
+              env:
+                - name: NAMESPACE_REGEX
+                  value: {{ .Values.namespaceRegex | quote }}
+                - name: NAMESPACE_DENYLIST_PATH
+                  value: {{ if and .Values.denylist.enabled (gt (len .Values.denylist.entries) 0) }}{{ .Values.jobConfig.namespaceDenylistPath | quote }}{{ else }}""{{ end }}
+                - name: MAX_NAMESPACE_AGE_HOURS
+                  value: {{ printf "%d" .Values.maxNamespaceAgeHours | quote }}
+                - name: ALERT_MODE
+                  value: {{ .Values.alertMode | quote }}
+                - name: ALERT_SILENT_ON_EMPTY
+                  value: {{ ternary "true" "false" .Values.alertSilentOnEmpty | quote }}
+                - name: DRY_RUN
+                  value: {{ ternary "true" "false" .Values.dryRun | quote }}
+                - name: SLACK_USERNAME
+                  value: {{ .Values.slackUsername | quote }}
+                - name: SLACK_ICON_EMOJI
+                  value: {{ .Values.slackIconEmoji | quote }}
+                - name: ALERT_EMAIL_SUBJECT
+                  value: {{ .Values.alertEmailSubject | quote }}
+                - name: SLACK_WEBHOOK_URL
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ include "namespace-janitor.alertSecretName" . }}
+                      key: {{ .Values.alertSecret.keys.slackWebhook }}
+                - name: ALERT_EMAIL_ENDPOINT
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ include "namespace-janitor.alertSecretName" . }}
+                      key: {{ .Values.alertSecret.keys.emailEndpoint }}
+                      optional: true
+                - name: ALERT_EMAIL_TO
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ include "namespace-janitor.alertSecretName" . }}
+                      key: {{ .Values.alertSecret.keys.emailRecipients }}
+                      optional: true
+                {{- if .Values.tmpVolume.enabled }}
+                - name: TMPDIR
+                  value: {{ .Values.tmpVolume.mountPath | quote }}
+                {{- end }}
+              {{- if .Values.extraEnv }}
+{{ toYaml .Values.extraEnv | indent 14 }}
+              {{- end }}
+              resources:
+{{ toYaml .Values.resources | indent 16 }}
+              securityContext:
+{{ toYaml .Values.securityContext | indent 16 }}
+              volumeMounts:
+                - name: cleanup-script
+                  mountPath: {{ .Values.jobConfig.scriptMountPath | quote }}
+                  readOnly: true
+                {{- if and .Values.denylist.enabled (gt (len .Values.denylist.entries) 0) }}
+                - name: denylist
+                  mountPath: {{ dir .Values.jobConfig.namespaceDenylistPath | quote }}
+                  readOnly: true
+                {{- end }}
+                {{- if .Values.tmpVolume.enabled }}
+                - name: tmp
+                  mountPath: {{ .Values.tmpVolume.mountPath | quote }}
+                {{- end }}
+          volumes:
+            - name: cleanup-script
+              configMap:
+                name: {{ include "namespace-janitor.fullname" . }}-script
+                defaultMode: 0755
+            {{- if and .Values.denylist.enabled (gt (len .Values.denylist.entries) 0) }}
+            - name: denylist
+              configMap:
+                name: {{ include "namespace-janitor.fullname" . }}-denylist
+                items:
+                  - key: namespaces.txt
+                    path: {{ base .Values.jobConfig.namespaceDenylistPath | quote }}
+            {{- end }}
+            {{- if .Values.tmpVolume.enabled }}
+            - name: tmp
+              emptyDir:
+                {{- if .Values.tmpVolume.sizeLimit }}
+                sizeLimit: {{ .Values.tmpVolume.sizeLimit }}
+                {{- else }}
+                {}
+                {{- end }}
+            {{- end }}
+          {{- if .Values.nodeSelector }}
+          nodeSelector:
+{{ toYaml .Values.nodeSelector | indent 12 }}
+          {{- end }}
+          {{- if .Values.affinity }}
+          affinity:
+{{ toYaml .Values.affinity | indent 12 }}
+          {{- end }}
+          {{- if .Values.tolerations }}
+          tolerations:
+{{ toYaml .Values.tolerations | indent 12 }}
+          {{- end }}

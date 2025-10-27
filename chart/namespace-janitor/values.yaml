@@ -1,0 +1,87 @@
+nameOverride: ""
+fullnameOverride: ""
+namespace: janitor
+createNamespace: true
+
+schedule: "0 2 * * *"
+concurrencyPolicy: Forbid
+successfulJobsHistoryLimit: 3
+failedJobsHistoryLimit: 1
+
+dryRun: false
+namespaceRegex: "^ephemeral-.*$"
+maxNamespaceAgeHours: 26
+alertSilentOnEmpty: true
+alertMode: slack
+slackUsername: namespace-janitor
+slackIconEmoji: ":wastebasket:"
+alertEmailSubject: "Namespace cleanup report"
+
+image:
+  repository: alpine/k8s
+  tag: "1.32.9"
+  pullPolicy: IfNotPresent
+
+serviceAccount:
+  create: true
+  name: ""
+  annotations: {}
+
+podAnnotations: {}
+podLabels: {}
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+
+securityContext:
+  readOnlyRootFilesystem: true
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 128Mi
+  limits:
+    cpu: 200m
+    memory: 256Mi
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+extraEnv: []
+
+alertSecret:
+  create: false
+  name: namespace-janitor-alerts
+  annotations: {}
+  labels: {}
+  data: {}
+  keys:
+    slackWebhook: slack-webhook-url
+    emailEndpoint: alert-email-endpoint
+    emailRecipients: alert-email-to
+
+denylist:
+  enabled: true
+  entries:
+    - "^kube-.*"
+    - "^default$"
+    - "^prod-.*"
+
+rbac:
+  create: true
+
+jobConfig:
+  namespaceDenylistPath: /denylist/namespaces.txt
+  scriptMountPath: /scripts
+
+tmpVolume:
+  enabled: true
+  mountPath: /tmp
+  sizeLimit: ""
