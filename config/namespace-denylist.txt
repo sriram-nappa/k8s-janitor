@@ -1,0 +1,5 @@
+# One regex per line. Lines starting with # are comments.
+# Example: protect system namespaces and long-lived prod envs.
+^kube-.*
+^default$
+^prod-.*
