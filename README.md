@@ -16,8 +16,6 @@ chart/
   namespace-janitor/       # Helm chart (templates + packaged script/denylist)
 config/
   namespace-denylist.txt   # Regex patterns for namespaces that must never be deleted
-scripts/
-  cleanup-namespaces.sh    # Bash script executed by the CronJob (Helm chart imports this file)
 tools/
   helm_helper.py           # Helper CLI to install/debug/remove the chart locally
 ```
